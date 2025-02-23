@@ -1,4 +1,45 @@
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: {{ .Values.application }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.application }}
+  labels:
+    app: {{ .Release.Name }}-{{ .Values.application }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-{{ .Values.application }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-{{ .Values.application }}
+    spec:
+      containers:
+        - name: {{ .Values.application }}
+          image: {{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.deployment.containerPort }}
+          resources:
+            requests:
+              cpu: {{ .Values.deployment.resources.requests.cpu }}
+              memory: {{ .Values.deployment.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.deployment.resources.limits.cpu }}
+              memory: {{ .Values.deployment.resources.limits.memory }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.deployment.livenessProbe.httpPath }}
+              port: {{ .Values.deployment.containerPort }}
+            initialDelaySeconds: {{ .Values.deployment.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deployment.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.deployment.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.deployment.livenessProbe.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.deployment.readinessProbe.httpPath }}
+              port: {{ .Values.deployment.containerPort }}
+            initialDelaySeconds: {{ .Values.deployment.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deployment.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.deployment.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.deployment.readinessProbe.failureThreshold }}

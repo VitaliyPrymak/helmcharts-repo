@@ -1,4 +1,29 @@
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: {{ .Values.application }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-%s" .Release.Name .Values.application }}
+  labels:
+    app: {{ printf "%s-%s" .Release.Name .Values.application }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: {{ printf "%s-%s" .Release.Name .Values.application }}
+  template:
+    metadata:
+      labels:
+        app: {{ printf "%s-%s" .Release.Name .Values.application }}
+    spec:
+      containers:
+        - name: {{ .Values.application }}
+          image: {{ printf "%s:%s" .Values.deployment.image.repository .Values.deployment.image.tag }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.deployment.containerPort }}
+          resources:
+            requests:
+              cpu: {{ .Values.deployment.resources.requests.cpu }}
+              memory: {{ .Values.deployment.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.deployment.resources.limits.cpu }}
+              memory: {{ .Values.deployment.resources.limits.memory }}

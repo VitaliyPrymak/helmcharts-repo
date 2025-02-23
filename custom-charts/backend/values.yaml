@@ -5,7 +5,7 @@ deployment:
   containerPort: 8000
   image:
     # Add the link to your AWS ECR repository
-    repository: ""
+    repository: "public.ecr.aws/l3q2f5k8/backend"
     tag: "latest"
   resources:
     requests:
