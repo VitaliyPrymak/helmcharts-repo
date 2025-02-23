@@ -1,4 +1,5 @@
 name: Frontend CI/CD
+
 on:
   workflow_dispatch:
     inputs:
@@ -45,25 +46,28 @@ jobs:
 
       - name: Build and Push Docker Image
         env:
-          AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}
+          AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_ECR_REGISTRY }}
+          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}
           AWS_ECR_REPOSITORY: frontend
-          FRONTEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:frontend
-          IMAGE_TAG: ${{ env.SHORT_SHA }}
+          IMAGE_TAG: latest
         run: |
-          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $FRONTEND_REPOSITORY
+          echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
+          
+          # Build the Docker image
+          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG .
+
+          # Push the Docker image to ECR
           docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG
 
-          if [ "${{ inputs.environment }}" == "prod" ]; then
-            docker tag $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
-            docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
-          fi
+      - name: Update Image Tag in Values File
+        run: |
+          sed -i "s/tag: .*/tag: latest/" custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
+          echo "Updated image tag to latest in values-${{ github.event.inputs.environment }}.yaml"
 
-      - name: Update Image Tag in Values
-        uses: fjogeleit/yaml-update-action@v1
-        with:
-          valueFile: custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
-          propertyPath: deployment.image.tag
-          value: ${{ env.SHORT_SHA }}
-          branch: main
-          message: Update Image Version to ${{ env.SHORT_SHA }}
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
+          git commit -m "Update image tag to latest in values-${{ github.event.inputs.environment }}.yaml" || echo "No changes to commit"
+          git push
