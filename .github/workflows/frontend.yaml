@@ -1,9 +1,10 @@
-name: Frontend CI/CD
+name: Build and Push Frontend Docker Image
+
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Select environment'
+        description: 'Select the target environment'
         required: true
         type: choice
         options:
@@ -18,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v2
 
       - name: Configure AWS Credentials
@@ -33,6 +34,7 @@ jobs:
           registry-type: public
 
       - name: Get Short SHA
+        id: get_short_sha
         run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
 
       - name: Set Backend URL
@@ -43,27 +45,18 @@ jobs:
             echo "BACKEND_URL=https://myapp.local" >> $GITHUB_ENV
           fi
 
-      - name: Debug Variables
-        run: |
-          echo "AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_ECR_REGISTRY }}"
-          echo "AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}"
-          echo "AWS_ECR_REPOSITORY: frontend"
-
       - name: Build and Push Docker Image
         env:
-          AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_ECR_REGISTRY }}
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}
-          AWS_ECR_REPOSITORY: frontend
-          IMAGE_TAG: latest
+          AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_ECR_REGISTRY }}  # Ваш секрет для реєстру
+          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}  # Ваш секрет для псевдоніму реєстру
+          AWS_ECR_REPOSITORY: frontend  # Назва репозиторію
+          FRONTEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:frontend
+          IMAGE_TAG: latest  # Тег для образу
         run: |
           echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
-          
-          docker build --build-arg VITE_API_URL=$BACKEND_URL \
-            -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" .
-          
-          docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Update Image Tag in Values
-        run: |
-          sed -i "s/tag: .*/tag: latest/" custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
-          echo "Updated image tag to latest in values-${{ github.event.inputs.environment }}.yaml"
+          # Build the Docker image
+          docker build --build-arg VITE_API_URL=$BACKEND_URL -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" "$FRONTEND_REPOSITORY"
+
+          # Push the Docker image to ECR
+          docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
