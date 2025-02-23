@@ -53,10 +53,6 @@ jobs:
           fi
 
       - name: Update Docker Image Tag in Values File
-        uses: actions/yaml-update@v1
-        with:
-          path: custom-charts/backend/values-${{ github.event.inputs.environment }}.yaml
-          property: deployment.image.tag
-          value: $SHORT_SHA
-          branch: main
-          message: Update Image Version to $SHORT_SHA
+        run: |
+          sed -i "s/tag: .*/tag: $SHORT_SHA/" custom-charts/backend/values-${{ github.event.inputs.environment }}.yaml
+          echo "Updated image tag to $SHORT_SHA in values-${{ github.event.inputs.environment }}.yaml"
