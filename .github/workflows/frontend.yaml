@@ -49,18 +49,12 @@ jobs:
           AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_ECR_REGISTRY }}
           AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_ECR_REGISTRY_ALIAS }}
           AWS_ECR_REPOSITORY: frontend
-          FRONTEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:frontend
-          IMAGE_TAG: ${{ env.SHORT_SHA }}
+          IMAGE_TAG: latest
         run: |
-          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $FRONTEND_REPOSITORY
+          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG .
           docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG
-
-          if [ "${{ inputs.environment }}" == "prod" ]; then
-            docker tag $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
-            docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
-          fi
 
       - name: Update Image Tag in Values
         run: |
-          sed -i "s/tag: .*/tag: ${{ env.SHORT_SHA }}/" custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
-          echo "Updated image tag to ${{ env.SHORT_SHA }} in values-${{ github.event.inputs.environment }}.yaml"
+          sed -i "s/tag: .*/tag: latest/" custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
+          echo "Updated image tag to latest in values-${{ github.event.inputs.environment }}.yaml"
