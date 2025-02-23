@@ -1,10 +1,9 @@
-name: Build and Push Frontend Docker Image
-
+name: Frontend CI/CD
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Select the target environment"
+        description: 'Select environment'
         required: true
         type: choice
         options:
@@ -19,7 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Configure AWS Credentials
@@ -44,17 +43,22 @@ jobs:
             echo "BACKEND_URL=https://myapp.local" >> $GITHUB_ENV
           fi
 
+      - name: Debug Variables
+        run: |
+          echo "AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_AWS_REGISTRY }}"
+          echo "AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_ECR_REGISTRY_ALIAS }}"
+          echo "AWS_ECR_REPOSITORY: frontend"
+
       - name: Build and Push Docker Image
         env:
-          AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_ECR_REGISTRY }}
+          AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_AWS_REGISTRY }}
           AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_ECR_REGISTRY_ALIAS }}
           AWS_ECR_REPOSITORY: frontend
           IMAGE_TAG: latest
         run: |
-          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG
-
-      - name: Update Image Tag in Values
-        run: |
-          sed -i "s/tag: .*/tag: latest/" custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
-          echo "Updated image tag to latest in values-${{ github.event.inputs.environment }}.yaml"
+          echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
+          
+          docker build --build-arg VITE_API_URL=$BACKEND_URL \
+            -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" .
+          
+          docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGIS
