@@ -1,9 +1,10 @@
-name: Backend CI/CD
+name: Build and Push Backend Docker Image
+
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Select environment'
+        description: 'Select the target environment'
         required: true
         type: choice
         options:
@@ -18,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v2
 
       - name: Configure AWS Credentials
@@ -34,6 +35,9 @@ jobs:
 
       - name: Get Short SHA
         run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
+
+      - name: Print Docker Image Tag
+        run: echo "Docker Image Tag: ${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.AWS_ECR_REGISTRY_ALIAS }}/backend:${{ env.SHORT_SHA }}"
 
       - name: Build and Push Docker Image
         env:
@@ -51,7 +55,11 @@ jobs:
             docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
           fi
 
-      - name: Update Image Tag in Values
-        run: |
-          VALUE_FILE="custom-charts/backend/values-${{ github.event.inputs.environment }}.yaml"
-          yq e -i '.deployment.image.tag = env(SHORT_SHA)' $VALUE_FILE
+      - name: Update Image Tag in Helm Values
+        uses: fjogeleit/yaml-update-action@v1
+        with:
+          valueFile: custom-charts/backend/values-${{ github.event.inputs.environment }}.yaml
+          propertyPath: deployment.image.tag
+          value: ${{ env.SHORT_SHA }}
+          branch: main
+          message: Update Image Version to ${{ env.SHORT_SHA }}
