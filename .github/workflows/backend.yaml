@@ -33,21 +33,13 @@ jobs:
         with:
           registry-type: public
 
-      - name: Get Short SHA
-        id: get_short_sha
-        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
-
-      - name: Print Docker Image Tag
-        run: |
-          echo "Docker Image Tag: ${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.AWS_ECR_REGISTRY_ALIAS }}/backend:${{ env.SHORT_SHA }}"
-
       - name: Build and Push Docker Image
         env:
           AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
           AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}
           AWS_ECR_REPOSITORY: backend
           BACKEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
-          IMAGE_TAG: ${{ env.SHORT_SHA }}
+          IMAGE_TAG: latest
         run: |
           echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
           
@@ -59,11 +51,13 @@ jobs:
 
           # Tag the image as latest if in prod environment
           if [ "${{ inputs.environment }}" == "prod" ]; then
+            echo "Tagging the image as latest for production"
             docker tag $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
             docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
           fi
 
       - name: Update Docker Image Tag in Values File
         run: |
-          sed -i "s/tag: .*/tag: ${{ env.SHORT_SHA }}/" custom-charts/backend/values-${{ github.event.inputs.environment }}.yaml
-          echo "Updated image tag to ${{ env.SHORT_SHA }} in values-${{ github.event.inputs.environment }}.yaml"
+          echo "Updating Docker image tag in values file"
+          sed -i "s/tag: .*/tag: latest/" custom-charts/backend/values-${{ github.event.inputs.environment }}.yaml
+          echo "Updated image tag to latest in values-${{ github.event.inputs.environment }}.yaml"
