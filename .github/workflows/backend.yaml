@@ -37,6 +37,10 @@ jobs:
         id: get_short_sha
         run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
 
+      - name: Print Docker Image Tag
+        run: |
+          echo "Docker Image Tag: ${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.AWS_ECR_REGISTRY_ALIAS }}/backend:${{ env.SHORT_SHA }}"
+
       - name: Build and Push Docker Image
         env:
           AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
