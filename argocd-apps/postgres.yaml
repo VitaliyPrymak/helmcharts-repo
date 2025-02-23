@@ -1,8 +1,51 @@
-# apiVersion: argoproj.io/v1alpha1
-# kind: ApplicationSet
-# metadata:
-#   name: postgres
-#   namespace: argocd
-#   finalizers:
-#     - resources-finalizer.argocd.argoproj.io
-# spec:
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: postgres-apps
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            storageSize: 1Gi
+          - env: prod
+            storageSize: 2Gi
+  template:
+    metadata:
+      name: postgres-{{env}}
+    spec:
+      project: default
+      source: 
+        repoURL: https://charts.bitnami.com/bitnami
+        targetRevision: 16.0.3
+        chart: postgresql
+        helm:
+          releaseName: "postgres-{{env}}"
+          values: | 
+            auth:
+              existingSecret: "backend-secret"
+              secretKeys:
+                adminPasswordKey: POSTGRES_PASSWORD
+            architecture: standalone
+            primary:
+              persistence:
+                size: "{{storageSize}}"
+              resourcesPreset: none
+              resources:
+                requests:
+                  cpu: 125m
+                  memory: 256Mi
+                limits:
+                  cpu: 250m
+                  memory: 512Mi
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{env}}"
+      syncPolicy:
+        automated: 
+          prune: true 
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+      revisionHistoryLimit: 5
