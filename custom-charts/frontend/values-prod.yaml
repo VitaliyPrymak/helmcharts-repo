@@ -1,0 +1,6 @@
+deployment:
+  image:
+    tag: latest
+
+ingress:
+  host: myapp.local
