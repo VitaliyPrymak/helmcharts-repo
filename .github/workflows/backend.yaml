@@ -36,6 +36,9 @@ jobs:
       - name: Get Short SHA
         run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
 
+      - name: Print Short SHA
+        run: echo "Short SHA is: $SHORT_SHA"
+
       - name: Build and Push Docker Image
         env:
           AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
@@ -44,6 +47,7 @@ jobs:
           BACKEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
           IMAGE_TAG: $SHORT_SHA
         run: |
+          echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
           docker build -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $BACKEND_REPOSITORY
           docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG
 
