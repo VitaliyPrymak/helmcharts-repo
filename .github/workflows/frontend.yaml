@@ -1,10 +1,10 @@
-name: Frontend CI/CD
+name: Build and Push Frontend Docker Image
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Select environment'
+        description: "Select the target environment"
         required: true
         type: choice
         options:
@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v2
 
       - name: Configure AWS Credentials
@@ -47,27 +47,20 @@ jobs:
       - name: Build and Push Docker Image
         env:
           AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_ECR_REGISTRY }}
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}
+          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_ECR_REGISTRY_ALIAS }}
           AWS_ECR_REPOSITORY: frontend
-          IMAGE_TAG: latest
+          FRONTEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:frontend
+          IMAGE_TAG: ${{ env.SHORT_SHA }}
         run: |
-          echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
-          
-          # Build the Docker image
-          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG .
-
-          # Push the Docker image to ECR
+          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $FRONTEND_REPOSITORY
           docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Update Image Tag in Values File
-        run: |
-          sed -i "s/tag: .*/tag: latest/" custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
-          echo "Updated image tag to latest in values-${{ github.event.inputs.environment }}.yaml"
+          if [ "${{ inputs.environment }}" == "prod" ]; then
+            docker tag $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
+            docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
+          fi
 
-      - name: Commit and Push Changes
+      - name: Update Image Tag in Values
         run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
-          git commit -m "Update image tag to latest in values-${{ github.event.inputs.environment }}.yaml" || echo "No changes to commit"
-          git push
+          sed -i "s/tag: .*/tag: ${{ env.SHORT_SHA }}/" custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
+          echo "Updated image tag to ${{ env.SHORT_SHA }} in values-${{ github.event.inputs.environment }}.yaml"
