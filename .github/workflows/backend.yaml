@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Select the target environment'
+        description: "Select the target environment"
         required: true
         type: choice
         options:
@@ -20,16 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_ECR_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR Public
-        uses: aws-actions/amazon-ecr-login@v1
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@v2
         with:
           registry-type: public
 
@@ -37,7 +38,7 @@ jobs:
         id: build-image
         env:
           AWS_ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}  # Переконайтеся, що цей секрет також існує
+          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}  # Переконайтеся, що цей секрет існує
           AWS_ECR_REPOSITORY: backend
           BACKEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
           IMAGE_TAG: latest
@@ -45,8 +46,4 @@ jobs:
           echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
           
           # Build the Docker image
-          docker build -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $BACKEND_REPOSITORY
-
-          # Push the Docker image to ECR
-          docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
-          
+          docker build -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR
