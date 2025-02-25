@@ -33,9 +33,10 @@ jobs:
         with:
           registry-type: public
 
-      - name: Build and Push Docker Image
+      - name: Build, tag, and push image to Amazon ECR Public
+        id: build-image
         env:
-          AWS_ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}  # Змінено на правильну назву секрету
+          AWS_ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
           AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}  # Переконайтеся, що цей секрет також існує
           AWS_ECR_REPOSITORY: backend
           BACKEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
