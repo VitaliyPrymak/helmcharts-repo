@@ -38,12 +38,15 @@ jobs:
         id: build-image
         env:
           AWS_ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}  # Переконайтеся, що цей секрет існує
+          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}
           AWS_ECR_REPOSITORY: backend
-          BACKEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
           IMAGE_TAG: latest
         run: |
           echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
           
-          # Build the Docker image
-          docker build -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR
+          # Build the Docker image directly from GitHub repository
+          docker build -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG \
+            https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
+
+          # Push the Docker image to ECR
+          docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
