@@ -1,4 +1,4 @@
-name: Build and Push Backend Docker Image
+name: Build and Push Frontend Docker Image
 
 on:
   workflow_dispatch:
@@ -34,19 +34,31 @@ jobs:
         with:
           registry-type: public
 
+      - name: Get Short SHA
+        id: get_short_sha
+        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
+
+      - name: Set Backend URL
+        run: |
+          if [ "${{ inputs.environment }}" == "dev" ]; then
+            echo "BACKEND_URL=https://dev.myapp.local" >> $GITHUB_ENV
+          else
+            echo "BACKEND_URL=https://myapp.local" >> $GITHUB_ENV
+          fi
+
       - name: Build, tag, and push image to Amazon ECR Public
         id: build-image
         env:
           AWS_ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}
-          AWS_ECR_REPOSITORY: backend
+          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}
+          AWS_ECR_REPOSITORY: frontend
+          FRONTEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:frontend
           IMAGE_TAG: latest
         run: |
           echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
-          
-          # Build the Docker image directly from GitHub repository
-          docker build -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG \
-            https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
+
+          # Build the Docker image
+          docker build --build-arg VITE_API_URL=$BACKEND_URL -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" "$FRONTEND_REPOSITORY"
 
           # Push the Docker image to ECR
           docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
