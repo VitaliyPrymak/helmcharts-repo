@@ -7,14 +7,16 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   generators:
-    - list:
-        elements:
-          - app: backend
-          - app: frontend
-    - list:
-        elements:
-          - env: dev
-          - env: prod
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - app: backend
+                - app: frontend
+          - list:
+              elements:
+                - env: dev
+                - env: prod
   template:
     metadata:
       name: "{{app}}-{{env}}"
