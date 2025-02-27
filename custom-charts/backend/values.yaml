@@ -1,12 +1,11 @@
 application: backend
 
 deployment:
+  image:
+    repository: "public.ecr.aws/l3q2f5k8/backend"
+    tag: latest
   replicas: 1
   containerPort: 8000
-  image:
-    # Add the link to your AWS ECR repository
-    repository: "public.ecr.aws/l3q2f5k8/backend"
-    tag: "latest"
   resources:
     requests:
       cpu: "100m"
@@ -33,4 +32,4 @@ service:
 
 ingress:
   ingressClassName: nginx
-  host: localhost
+  host: myapp.local
