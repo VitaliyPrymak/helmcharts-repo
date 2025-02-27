@@ -25,7 +25,7 @@ spec:
       source:
         repoURL: https://github.com/VitaliyPrymak/helmcharts-repo
         targetRevision: HEAD
-        chart: custom-charts/{{app}}
+        path: custom-charts/{{app}}
         helm:
           valueFiles:
             - values.yaml
