@@ -1,8 +1,40 @@
-# apiVersion: argoproj.io/v1alpha1
-# kind: ApplicationSet
-# metadata:
-#   name: custom-apps
-#   namespace: argocd
-#   finalizers:
-#     - resources-finalizer.argocd.argoproj.io
-# spec:
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: custom-apps
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  generators:
+    - list:
+        elements:
+          - app: backend
+          - app: frontend
+    - list:
+        elements:
+          - env: dev
+          - env: prod
+  template:
+    metadata:
+      name: "{{app}}-{{env}}"
+    spec:
+      project: default  # Додайте це поле з іменем проекту
+      source:
+        repoURL: https://github.com/VitaliyPrymak/helmcharts-repo
+        targetRevision: HEAD
+        chart: custom-charts/{{app}}
+        helm:
+          valueFiles:
+            - values.yaml
+            - "values-{{env}}.yaml"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{env}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+      revisionHistoryLimit: 5
