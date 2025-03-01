@@ -61,6 +61,21 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.application }}-secret
                   key: POSTGRES_PASSWORD
+            - name: PROJECT_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.application }}-secret
+                  key: PROJECT_NAME
+            - name: FIRST_SUPERUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.application }}-secret
+                  key: FIRST_SUPERUSER
+            - name: FIRST_SUPERUSER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.application }}-secret
+                  key: FIRST_SUPERUSER_PASSWORD
           envFrom:
             - secretRef:
                 name: {{ .Values.application }}-secret
