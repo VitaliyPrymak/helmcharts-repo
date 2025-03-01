@@ -22,23 +22,23 @@ spec:
         chart: postgresql
         helm:
           releaseName: "postgres-{{env}}"
-          values: | 
-            auth:
-              existingSecret: "backend-secret"
-              secretKeys:
-                adminPasswordKey: POSTGRES_PASSWORD
-            architecture: standalone
-            primary:
-              persistence:
-                size: "{{storageSize}}"
-              resourcesPreset: none
-              resources:
-                requests:
-                  cpu: 125m
-                  memory: 256Mi
-                limits:
-                  cpu: 250m
-                  memory: 512Mi
+valuesObject:
+  auth:
+    existingSecret: "backend-secret"
+    secretKeys:
+      adminPasswordKey: POSTGRES_PASSWORD
+  architecture: standalone
+  primary:
+    persistence:
+      size: "{{storageSize}}"
+    resourcesPreset: none
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+      limits:
+        cpu: 250m
+        memory: 512Mi
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{env}}"
