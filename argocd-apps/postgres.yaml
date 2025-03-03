@@ -24,7 +24,7 @@ spec:
           releaseName: "postgres-{{env}}"
           valuesObject:
             auth:
-              existingSecret: "backend-secret"
+              existingSecret: "backend-secret-{{env}}"
               secretKeys:
                 adminPasswordKey: POSTGRES_PASSWORD
             architecture: standalone
