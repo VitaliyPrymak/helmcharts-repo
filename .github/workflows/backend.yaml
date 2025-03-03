@@ -29,7 +29,6 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR Public
-        id: login-ecr-public
         uses: aws-actions/amazon-ecr-login@v2
         with:
           registry-type: public
@@ -46,19 +45,24 @@ jobs:
             echo "BACKEND_URL=https://myapp.local" >> $GITHUB_ENV
           fi
 
-      - name: Build, tag, and push image to Amazon ECR Public
-        id: build-image
+      - name: Update image tag in values files
+        run: |
+          if [ "${{ inputs.environment }}" == "dev" ]; then
+            sed -i 's/tag: latest/tag: dev-${{ env.SHORT_SHA }}/' custom-charts/backend/values-dev.yaml
+          else
+            sed -i 's/tag: latest/tag: prod-${{ env.SHORT_SHA }}/' custom-charts/backend/values-prod.yaml
+          fi
+
+      - name: Build and Push Docker Image
         env:
-          AWS_ECR_REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}
-          AWS_ECR_REPOSITORY: frontend
-          FRONTEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:frontend
-          IMAGE_TAG: latest
+          AWS_ECR_REGISTRY: ${{ secrets.BACKEND_ECR_REGISTRY }}  # Секрет для реєстру
+          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.BACKEND_AWS_REGISTRY_ALIAS }}  # Секрет для псевдоніму реєстру
+          AWS_ECR_REPOSITORY: backend  # Назва репозиторію
+          BACKEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
+          IMAGE_TAG: ${{ inputs.environment }}-${{ env.SHORT_SHA }}  # Тег образу
         run: |
           echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
-
           # Build the Docker image
-          docker build --build-arg VITE_API_URL=$BACKEND_URL -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" "$FRONTEND_REPOSITORY"
-
+          docker build -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" "$BACKEND_REPOSITORY"
           # Push the Docker image to ECR
           docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
