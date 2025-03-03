@@ -43,7 +43,26 @@ jobs:
             echo "BACKEND_URL=https://dev.myapp.local" >> $GITHUB_ENV
           else
             echo "BACKEND_URL=https://myapp.local" >> $GITHUB_ENV
-          fi
+
+      # Update the image tag in the backend values file
+      - name: Update Backend Image Tag in values file
+        uses: fjogeleit/yaml-update-action@v1
+        with:
+          valueFile: custom-charts/backend/values-${{ github.event.inputs.environment }}.yaml
+          propertyPath: deployment.image.tag
+          value: ${{ env.SHORT_SHA }}
+          branch: main
+          message: "Update Image Version to ${{ env.SHORT_SHA }}"
+
+      # Update the image tag in the frontend values file
+      - name: Update Frontend Image Tag in values file
+        uses: fjogeleit/yaml-update-action@v1
+        with:
+          valueFile: custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
+          propertyPath: deployment.image.tag
+          value: ${{ env.SHORT_SHA }}
+          branch: main
+          message: "Update Image Version to ${{ env.SHORT_SHA }}"
 
       - name: Build and Push Docker Image
         env:
@@ -51,12 +70,10 @@ jobs:
           AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}  # Ваш секрет для псевдоніму реєстру
           AWS_ECR_REPOSITORY: frontend  # Назва репозиторію
           FRONTEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:frontend
-          IMAGE_TAG: latest  # Тег для образу
+          IMAGE_TAG: ${{ env.SHORT_SHA }}  # Тег для образу
         run: |
           echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
-
-          # Build the Docker image
+          # Build the Docker image, passing BACKEND_URL as a build argument
           docker build --build-arg VITE_API_URL=$BACKEND_URL -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" "$FRONTEND_REPOSITORY"
-
           # Push the Docker image to ECR
           docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
