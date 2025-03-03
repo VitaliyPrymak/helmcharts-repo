@@ -16,13 +16,13 @@ spec:
       name: postgres-{{env}}
     spec:
       project: default
-      source:
+      source: 
         repoURL: https://charts.bitnami.com/bitnami
         targetRevision: 16.0.3
         chart: postgresql
         helm:
           releaseName: "postgres-{{env}}"
-          values:
+          valuesObject:
             auth:
               existingSecret: "backend-secret"
               secretKeys:
@@ -43,8 +43,8 @@ spec:
         server: https://kubernetes.default.svc
         namespace: "{{env}}"
       syncPolicy:
-        automated:
-          prune: true
+        automated: 
+          prune: true 
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
