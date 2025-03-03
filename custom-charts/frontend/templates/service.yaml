@@ -11,4 +11,4 @@ spec:
       targetPort: {{ .Values.deployment.containerPort }}
       protocol: TCP
   selector:
-    app: {{ .Values.application }}
+       app: {{ printf "%s-%s" .Release.Name .Values.application }}
