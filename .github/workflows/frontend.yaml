@@ -46,23 +46,20 @@ jobs:
             echo "BACKEND_URL=https://myapp.local" >> $GITHUB_ENV
           fi
 
-      - name: Debug - Check Files
-        run: ls -R
-
       - name: Build, Tag, and Push Docker Image
         env:
           AWS_ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}
           AWS_ECR_REPOSITORY: frontend
+          FRONTEND_REPOSITORY: https://github.com/your-org/frontend-repo.git#main
           IMAGE_TAG: ${{ env.SHORT_SHA }}
         run: |
-          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG -f frontend/Dockerfile frontend/
+          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG .
           docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG
 
           if [ "${{ inputs.environment }}" == "prod" ]; then
             docker tag $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
             docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
-          fi
 
       - name: Update Helm Chart Image Tag
         uses: fjogeleit/yaml-update-action@v0.13.2
