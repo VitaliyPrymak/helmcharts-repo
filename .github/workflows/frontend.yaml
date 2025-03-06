@@ -1,10 +1,10 @@
-name: Build and Push Frontend Docker Image
+name: Frontend Deployment
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Select the target environment'
+        description: 'Target environment'
         required: true
         type: choice
         options:
@@ -16,25 +16,26 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_ECR_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR Public
-        uses: aws-actions/amazon-ecr-login@v1
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
         with:
           registry-type: public
 
       - name: Get Short SHA
-        id: get_short_sha
         run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
 
       - name: Set Backend URL
@@ -45,24 +46,26 @@ jobs:
             echo "BACKEND_URL=https://myapp.local" >> $GITHUB_ENV
           fi
 
-      - name: Update image tag in values files
+      - name: Build, Tag, and Push Docker Image
+        env:
+          AWS_ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.AWS_ECR_REGISTRY_ALIAS }}
+          AWS_ECR_REPOSITORY: frontend
+          IMAGE_TAG: ${{ env.SHORT_SHA }}
         run: |
-          if [ "${{ inputs.environment }}" == "dev" ]; then
-            sed -i 's/tag: latest/tag: dev-${{ env.SHORT_SHA }}/' custom-charts/frontend/values-dev.yaml
-          else
-            sed -i 's/tag: latest/tag: prod-${{ env.SHORT_SHA }}/' custom-charts/frontend/values-prod.yaml
+          docker build --build-arg VITE_API_URL=$BACKEND_URL -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG
+
+          if [ "${{ inputs.environment }}" == "prod" ]; then
+            docker tag $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
+            docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
           fi
 
-      - name: Build and Push Docker Image
-        env:
-          AWS_ECR_REGISTRY: ${{ secrets.FRONTEND_ECR_REGISTRY }}  # Ваш секрет для реєстру
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.FRONTEND_AWS_REGISTRY_ALIAS }}  # Ваш секрет для псевдоніму реєстру
-          AWS_ECR_REPOSITORY: frontend  # Назва репозиторію
-          FRONTEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:frontend
-          IMAGE_TAG: ${{ inputs.environment }}-${{ env.SHORT_SHA }}  # Тег для образу
-        run: |
-          echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
-          # Build the Docker image
-          docker build --build-arg VITE_API_URL=$BACKEND_URL -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" "$FRONTEND_REPOSITORY"
-          # Push the Docker image to ECR
-          docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
+      - name: Update Helm Chart Image Tag
+        uses: fjogeleit/yaml-update-action@v0.13.2
+        with:
+          valueFile: custom-charts/frontend/values-${{ github.event.inputs.environment }}.yaml
+          propertyPath: deployment.image.tag
+          value: ${{ env.SHORT_SHA }}
+          branch: main
+          message: "Update Image Version to ${{ env.SHORT_SHA }}"
