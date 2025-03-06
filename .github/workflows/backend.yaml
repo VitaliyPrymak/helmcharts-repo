@@ -11,58 +11,52 @@ on:
           - dev
           - prod
 
+env:
+  IMAGE_NAME: image
+
 permissions:
   id-token: write
   contents: write
 
 jobs:
-  build:
+  push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Build app image
+        run: docker build . --tag $IMAGE_NAME
+
+      - name: Log into registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+
+      - name: Push app image
+        id: image
+        run: |
+          IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "main" ] && VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+          
+          echo "IMAGE_ID=$IMAGE_ID"
+          echo "VERSION=$VERSION"
+
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
+
+          echo "::set-output name=version::$VERSION"
+
+      - name: Update Image Version in the related HelmChart values.yaml
+        uses: fjogeleit/yaml-update-action@main
         with:
-          role-to-assume: ${{ secrets.AWS_ECR_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Login to Amazon ECR Public
-        uses: aws-actions/amazon-ecr-login@v2
-        with:
-          registry-type: public
-
-      - name: Get Short SHA
-        id: get_short_sha
-        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
-
-      - name: Set Backend URL
-        run: |
-          if [ "${{ inputs.environment }}" == "dev" ]; then
-            echo "BACKEND_URL=https://dev.myapp.local" >> $GITHUB_ENV
-          else
-            echo "BACKEND_URL=https://myapp.local" >> $GITHUB_ENV
-          fi
-
-      - name: Update image tag in values files
-        run: |
-          if [ "${{ inputs.environment }}" == "dev" ]; then
-            sed -i 's/tag: latest/tag: dev-${{ env.SHORT_SHA }}/' custom-charts/backend/values-dev.yaml
-          else
-            sed -i 's/tag: latest/tag: prod-${{ env.SHORT_SHA }}/' custom-charts/backend/values-prod.yaml
-          fi
-
-      - name: Build and Push Docker Image
-        env:
-          AWS_ECR_REGISTRY: ${{ secrets.BACKEND_ECR_REGISTRY }}  # Секрет для реєстру
-          AWS_ECR_REGISTRY_ALIAS: ${{ secrets.BACKEND_AWS_REGISTRY_ALIAS }}  # Секрет для псевдоніму реєстру
-          AWS_ECR_REPOSITORY: backend  # Назва репозиторію
-          BACKEND_REPOSITORY: https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend
-          IMAGE_TAG: ${{ inputs.environment }}-${{ env.SHORT_SHA }}  # Тег образу
-        run: |
-          echo "Building Docker image with tag: $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
-          # Build the Docker image
-          docker build -t "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG" "$BACKEND_REPOSITORY"
-          # Push the Docker image to ECR
-          docker push "$AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG"
+          valueFile: 'deployment/helm/values.yaml'
+          propertyPath: 'backend.version'
+          value: ${{ steps.image.outputs.version }}
+          branch: deployment/${{ steps.image.outputs.version }}
+          targetBranch: development
+          createPR: true
+          message: 'Update Image Version to ${{ steps.image.outputs.version }}'
